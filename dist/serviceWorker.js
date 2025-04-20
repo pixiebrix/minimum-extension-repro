@@ -1,7 +1,55 @@
 // Allows users to open the side panel by clicking on the action toolbar icon
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error) => console.error(error));
+// chrome.sidePanel
+//   .setPanelBehavior({ openPanelOnActionClick: true })
+//   .catch((error) => console.error(error));
+
+
+const tabPanelState = new Map();
+
+
+async function initBrowserAction() {
+  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+
+  // Disable by default, so that it can be enabled on a per-tab basis.
+  // Without this, the sidePanel remains open as the user changes tabs
+  void chrome.sidePanel.setOptions({
+    enabled: false,
+  });
+
+  chrome.action.onClicked.addListener(async (tab) => {
+
+    console.log("Action clicked", tab.id);
+
+    if (tab.id) {
+      const isOpen = tabPanelState.get(tab.id) ?? false;
+
+      if (isOpen) {
+        tabPanelState.set(tab.id, false);
+        await chrome.sidePanel.setOptions({
+          enabled: false,
+          tabId: tab.id,
+        })
+      } else {
+        console.log("Opening side panel", chrome.runtime.getURL("sidepanel.html?tabId=" + tab.id));
+
+        void chrome.sidePanel.setOptions({
+          enabled: true,
+          tabId: tab.id,
+          path: chrome.runtime.getURL("sidepanel.html?tabId=" + tab.id),
+        })
+
+        void chrome.sidePanel.open({
+          tabId: tab.id,
+        });
+
+        tabPanelState.set(tab.id, true);
+      }
+    }
+  });
+}
+
+void initBrowserAction();
+
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.command === "click") {
